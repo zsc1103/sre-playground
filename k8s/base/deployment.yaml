@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-playground
+  namespace: sre-playground
+  labels:
+    app: sre-playground
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-playground
+  template:
+    metadata:
+      labels:
+        app: sre-playground
+    spec:
+      containers:
+        - name: service
+          image: sre-playground-service:day3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+
+          # SRE面试点：明确资源边界，避�?noisy neighbor / OOM 风险
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          # Spring Boot Actuator probes
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
