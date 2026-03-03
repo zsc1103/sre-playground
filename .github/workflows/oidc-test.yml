@@ -1,17 +1,23 @@
-name: oidc-test
+name: ecr-push
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  test:
+  build-and-push:
     runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: "321663676032"
+      ECR_REPO: "sre-playground-app"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,5 +28,23 @@ jobs:
           role-to-assume: arn:aws:iam::321663676032:role/GitHubActionsEKSRole
           aws-region: us-east-1
 
-      - name: Who am I
-        run: aws sts get-caller-identity
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_SHA::7}"
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE="${ECR_REGISTRY}/${ECR_REPO}:${TAG}"
+
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" .
+
+          echo "Pushing ${IMAGE}"
+          docker push "${IMAGE}"
+
+          echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+
+      - name: Show image
+        run: echo "Pushed $IMAGE"
